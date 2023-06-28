@@ -1,31 +1,5 @@
-# postavke pretrage
-sajt_mape = "https://www.google.com/maps/"
-
-klik_putanja = "hArJGc"
-
-input_od = "//*[@id='sb_ifc50']/*[@class='tactile-searchbox-input']"
-
-input_do = "//*[@id='sb_ifc51']/*[@class='tactile-searchbox-input']"
-
-odakle = "Budapest"
-dokle = "Beograd"
-
-klik_opcije = "//*[contains(@class,'OcYctc ')]"
-klik_autoput = "//*[@id='pane.directions-options-avoid-highways']"
-klik_nrampe = "//*[@id='pane.directions-options-avoid-tolls']"
-
-klik_vid = "//*[@class='FkdJRd vRIAEd dS8AEf']/div[2]" 
-
-
-trajanje = "//*[contains(@class,'Fk3sm')]"
-duzina = "//*[contains(@class,'ivN21e tUEI8e fontBodyMedium')]/div"
-
-vr_deonica = "//*[@class='directions-mode-distance-time fontBodySmall']"
-km_deonica = "//*[@class='directions-mode-distance-time fontBodySmall']/span"
-
-#KOD
 import time
-import math
+import postavke as pst
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver import Keys
@@ -34,95 +8,97 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import TimeoutException
 
-#otvaranje sajta
+# KOD
+
+while True:
+    cilj = input("trazim najduzu(d) ili najkracu(k)?")
+    if not (cilj == 'd' or cilj == 'k'):
+        print('odgovor mora biti d ili k')
+    else:
+        break
+
+# otvaranje sajta
 driver = webdriver.Firefox()
 time.sleep(4)
-driver.get(sajt_mape)
-#driver.set_window_size(400,300)
+driver.get(pst.sajt_mape)
 
 try:
     # klik na dugme putanja
-    WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, klik_putanja)) )
-    driver.find_element(By.ID, klik_putanja).click()
+    WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, pst.klik_putanja)))
+    driver.find_element(By.ID, pst.klik_putanja).click()
 
     # popunjavanje polja odakle i dokle
-    WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, input_od)))
-    od = driver.find_element(By.XPATH, input_od)
-    od.send_keys(odakle)
+    WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, pst.input_od)))
+    od = driver.find_element(By.XPATH, pst.input_od)
+    od.send_keys(pst.odakle)
 
-    do = driver.find_element(By.XPATH, input_do)
-    do.send_keys(dokle)
+    do = driver.find_element(By.XPATH, pst.input_do)
+    do.send_keys(pst.dokle)
     do.send_keys(Keys.RETURN)
 
-    # odredjivanje vida pretrage - najbolje, auto, voz...
-    driver.find_element(By.XPATH, klik_vid).click()
+    # odredjivanje vida pretrage - najbolje, auto, voz... bira auto
+    driver.find_element(By.XPATH, pst.klik_vid).click()
 
-    # u opcijama izaberi da ne ide auto-putevima i da bude bez naplate
-    driver.find_element(By.XPATH, klik_opcije).click()
+    # u opcijama izaberi da bude bez naplate
+    driver.find_element(By.XPATH, pst.klik_opcije).click()
 
-##    autoput = driver.find_element(By.XPATH, klik_autoput)
-##    driver.execute_script("arguments[0].click();", autoput)
-    nrampe = driver.find_element(By.XPATH, klik_nrampe   )
-    driver.execute_script("arguments[0].click();", nrampe )
+    nrampe = driver.find_element(By.XPATH, pst.klik_nrampe)
+    driver.execute_script("arguments[0].click();", nrampe)
 
-    # ocitavanje svih vremena predlozenih putanja
+    # ocitavanje svih vremena predlozenih putanja u levom panou
+    WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, pst.trajanje)))
+    pvoznje = driver.find_elements(By.XPATH, pst.pano_vremena)
+    pkilometara = driver.find_elements(By.XPATH, pst.pano_duzine)
 
-    WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, trajanje)))
-    hvoznje = driver.find_elements(By.XPATH, trajanje)
-    kilometri = driver.find_elements(By.XPATH, duzina)
-    
     # obrada dobijenih podataka - izdvajanje pojedinacnih vremena
-    v = [ vr.text for vr in hvoznje ]
-    
-    vreme =[]
-    for x in v:
-        sati = int(x[:x.find(' сат')])
-        minu = x[x.find(' сат'):]
-        minuta = int( ''.join(c for c in minu if c.isdigit()) )
-        vreme.append(sati*60+minuta)
+    pano_h = [(n, x.text) for n, x in enumerate(pvoznje)]
+    pano_km = [(m, y.text) for m, y in enumerate(pkilometara)]
 
-    # odredjivanje najbrzeg puta i klik na njega
-    najbrzi = vreme.index(min(vreme))    
+    # trazi se najduzi/najkraci put
+    mins = float(pano_km[0][1][:pano_km[0][1].find(' ')])
+    if pano_km[0][1].find(' km') == -1:
+        mins /= 1000
+    minm = 0
 
-    km = [ int(k.text[:k.text.find(' km')]) for k in kilometri ]
+    for m, t in pano_km:
+        d = float(t[:t.find(' ')])
+        if t.find('km') == -1:
+            d /= 1000
 
-    
-    driver.find_element(By.ID,'section-directions-trip-' + str(najbrzi)).click()
+        if cilj == 'k':
+            if d < mins:
+                mins = d
+                minm = m
+        elif cilj == 'd':
+            if d > mins:
+                mins = d
+                minm = m
 
+    # najduzi/najkraci put je pod rednim brojem minm:
+    najb_h = pano_h[minm][1]
+    najb_km = pano_km[minm][1]
 
+    # klik na najduzi/najkraci put
 
-    UkVrDeonica = driver.find_elements(By.XPATH, vr_deonica)
-    UkKmDeonica = driver.find_elements(By.XPATH, km_deonica)
+    driver.find_elements(By.XPATH, pst.pano)[minm].click()
+    if driver.find_element(By.XPATH, pst.detalji).is_displayed():
+        driver.find_element(By.XPATH, pst.detalji).click()
 
-    v = [ vr.text for vr in UkVrDeonica ]
-    km_d = [ k.text for k in UkKmDeonica ]
+    # pokupi vreme i kilometrazu za odabranu deonicu
+    time.sleep(2)
+    deo_h = driver.find_element(By.XPATH, pst.vr_deo).text
+    deo_km = driver.find_element(By.XPATH, pst.km_deo).text.replace('(', '').replace(')', '')
 
-    km2 = 0
-    for x in km_d:
-        if x.find('km') == -1:
-            km2 += int(x[1:x.find(' m')])/1000
-        else:
-            km2 += float(x[1:x.find(' km')].replace(',','.'))
-
-    km2 = math.ceil(km2)
-                       
-    vreme2 =[]
-    for x in v:
-        sati = int(x[:x.find(' сат')]) if x.find(' сат')>0 else 0
-        minu = x[x.find(' сат'):x.find(' (')] if x.find(' сат')>0 else x[:x.find(' (')]
-        minuta = int( ''.join(c for c in minu if c.isdigit()) )
-        vreme2.append(sati*60+minuta)
-
-        
-    print ('Provera vremena: ' + ('OK' if sum(vreme2) == vreme[najbrzi] else ('Nije dobro. Po deonicama: ' + str(sum(vreme2))    + ' min, a cela ruta: ' + str(vreme[najbrzi])    )))
-    print ('Provera duzine: '  + ('OK' if km2 == km[najbrzi]       else ('Nije dobro. Po deonicama: ' + str(km2)       + ' km, a cela ruta: ' + str(km[najbrzi])   )))
+    assert najb_h == deo_h, 'nisu ista vremena'
+    assert najb_km == deo_km, 'nije ista duzina'
 
     driver.quit()
-    
+
 except NoSuchElementException as exception:
-    print("Trazeni element nema na ovom sajtu. Nesto si se prejebao.")
+    print("Trazeni element " + exception.msg[1 + exception.msg.find(':'):exception.msg.find(
+        ';')] + " nema na ovom sajtu. Nesto si se prejebao.")
     driver.quit()
-    
+
 except TimeoutException:
     print('Sajt je predugo ucitava. Probaj ponovo.')
     driver.quit()
